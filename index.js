@@ -17,8 +17,16 @@ const chartColors = {
     "grey": "rgb(201, 203, 207)"
 };
 
+const bgColors = {
+    red: 'rgba(255, 0, 0, .1)',
+    green: 'rgba(0, 255, 0, .1)',
+}
+
 function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return '0 Bytes';
+
+    const negative = bytes < 0;
+    bytes = Math.abs(bytes);
 
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
@@ -26,7 +34,7 @@ function formatBytes(bytes, decimals = 2) {
 
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    return (negative ? '-' : '') + (bytes / Math.pow(k, i)).toFixed(dm) + ' ' + sizes[i];
 }
 
 const addCanvas = (fileName) => {
@@ -38,12 +46,77 @@ const addCanvas = (fileName) => {
     const canvas = document.createElement('canvas');
     div.appendChild(canvas);
     wrapper.appendChild(div);
-    return canvas.getContext("2d");
+    return {ctx: canvas.getContext("2d"), wrapper: div};
+};
+
+const sliceEnd = (array, length = 5) => {
+    return array.slice(Math.max(array.length - length));
+};
+
+function table(sizes) {
+    const tableWrapper = document.createElement('div');
+    tableWrapper.className = 'table__wrapper';
+    const table = document.createElement('table');
+    tableWrapper.appendChild(table);
+
+    const thead = document.createElement('thead');
+    table.appendChild(thead);
+    const tr = document.createElement('tr');
+    thead.appendChild(tr);
+
+    function th(tr, text) {
+        const td = document.createElement('th');
+        td.innerText = text;
+        tr.appendChild(td);
+    }
+
+    th(tr, 'change');
+    th(tr, 'version');
+    th(tr, 'size (raw / gzip)');
+    th(tr, 'gzip delta');
+
+    const tbody = document.createElement('tbody');
+    table.appendChild(tbody);
+
+    function td(tr, text, className) {
+        const td = document.createElement('td');
+        td.innerText = text;
+        if (className) {
+            td.className = className;
+        }
+        tr.appendChild(td);
+    }
+
+    sizes.forEach((size, idx) => {
+        const prevSize = sizes[idx - 1];
+        const tr = document.createElement('tr');
+        tbody.appendChild(tr);
+
+        let delta = '';
+        if (prevSize) {
+            const diff = size.size.gzip - prevSize.size.gzip;
+            const didIncrease = diff > 0;
+
+            const percentage = Math.abs(diff) / size.size.gzip * 100;
+            delta = `${didIncrease ? '+' : ''}${formatBytes(diff)} (${percentage.toFixed(2)}%)`;
+            td(tr, didIncrease ? '⬀' : (diff === 0 ? '⇨' : '⬂'), `tc ${didIncrease ? 'bg-red' : (diff === 0 ? 'bg-grey' : 'bg-green')}`);
+        } else {
+            td(tr, '');
+        }
+
+        td(tr, size.version);
+        td(tr, `${formatBytes(size.size.raw)} / ${formatBytes(size.size.gzip)}`);
+
+        td(tr, delta);
+    });
+
+    return tableWrapper;
 }
 
 async function boot(file) {
-    const ctx = addCanvas(file);
+    const {ctx, wrapper} = addCanvas(file);
 
+    let maxSize = 0;
     const data = sizes
         .map(size => ({
             time: size.time,
@@ -53,9 +126,28 @@ async function boot(file) {
         }))
         .sort((a, b) => semver.compare(a.version, b.version));
 
+    wrapper.appendChild(table(sliceEnd(data, 20)));
+
+    // return;
+    const annotations = [];
     const labels = data.map(d => d.version);
+    data.forEach((d, idx) => {
+        maxSize = Math.max(d.size.raw, maxSize);
+
+        const previousDatum = data[idx - 1];
+        if (previousDatum) {
+            annotations.push({
+                x0: labels.indexOf(previousDatum.version),
+                x1: labels.indexOf(d.version),
+                color: previousDatum.size.gzip < d.size.gzip ?
+                    bgColors.red :
+                    bgColors.green,
+            })
+        }
+    });
 
     new Chart(ctx, {
+        // plugins: [ChartAnnotation],
         responsiveAnimationDuration: 0,
         type: 'line',
         data: {
@@ -118,6 +210,31 @@ async function boot(file) {
                     }
                 }
             },
+            annotation: {
+                annotations:
+                    annotations.map(annotation => {
+                        return {
+                            drawTime: 'beforeDatasetsDraw',
+                            type: 'box',
+
+                            xScaleID: 'x-axis-0',
+                            yScaleID: 'y-axis-0',
+
+                            xMin: annotation.x0,
+
+                            // Right edge of the box
+                            xMax: annotation.x1,
+
+                            // Top edge of the box in units along the y axis
+                            yMax: maxSize,
+
+                            // Bottom edge of the box
+                            yMin: 0,
+
+                            backgroundColor: annotation.color,//'rgba(255, 0, 0, .2)',
+                        }
+                    })
+            },
             plugins: {
                 crosshair: {
                     sync: {
@@ -125,7 +242,7 @@ async function boot(file) {
                         group: 1,                 // chart group
                         suppressTooltips: false   // suppress tooltips when showing a synced tracer
                     },
-                }
+                },
             }
         }
     });
