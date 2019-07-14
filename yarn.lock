@@ -755,6 +755,11 @@
     "@parcel/utils" "^1.11.0"
     physical-cpu-count "^2.0.0"
 
+"@sgratzl/science@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@sgratzl/science/-/science-2.0.0.tgz#9154f6f5d55c5712f48887c25492a4dc7bc6cc99"
+  integrity sha512-LO3gArm8rVczcksg35xnZbOLEOE091VjyvvzR8mnPjP5K5+xqZEWhBi+lDcEk50dAlfPBoBHfwmu+MmiiSpXHw==
+
 "@sindresorhus/is@^0.14.0":
   version "0.14.0"
   resolved "https://registry.yarnpkg.com/@sindresorhus/is/-/is-0.14.0.tgz#9fb3a3cf3132328151f353de4632e01e52102bea"
@@ -1297,6 +1302,14 @@ chart.js@^2.4.0, chart.js@^2.8.0:
   dependencies:
     chartjs-color "^2.1.0"
     moment "^2.10.2"
+
+chartjs-chart-box-and-violin-plot@^2.1.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/chartjs-chart-box-and-violin-plot/-/chartjs-chart-box-and-violin-plot-2.1.0.tgz#ff3abfcaf0be0c082e8b4a3c1e5682be59f1643c"
+  integrity sha512-tr5L0VPsTJODndiIBLfQzrwZCaUY1tbPhtPW0D/xvGdD69NTWS89O13Fi33dHL2sXQwvGq1Hyqnn5e83VUKCgQ==
+  dependencies:
+    "@sgratzl/science" "^2.0.0"
+    chart.js "^2.8.0"
 
 chartjs-color-string@^0.6.0:
   version "0.6.0"

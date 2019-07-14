@@ -1,5 +1,9 @@
 import 'flexboxgrid2/flexboxgrid2.min.css';
 
+const ChartBoxPlot = require('chartjs-chart-box-and-violin-plot');
+const ChartAnnotation = require('chartjs-plugin-annotation');
+const ChartCrosshair = require('chartjs-plugin-crosshair');
+
 const semver = require('semver');
 const sizes = require('./meta/ember-source.json');
 const wrapper = document.querySelector('#charts-wrapper');
@@ -37,15 +41,11 @@ function formatBytes(bytes, decimals = 2) {
     return (negative ? '-' : '') + (bytes / Math.pow(k, i)).toFixed(dm) + ' ' + sizes[i];
 }
 
-const addCanvas = (fileName) => {
+const addCanvas = () => {
     const div = document.createElement('div');
-    div.className = 'canvas__wrapper col-xl-6 col-sm-12 col-xs-12';
-    const title = document.createElement('h2');
-    title.innerText = fileName;
-    div.appendChild(title);
+    div.className = 'canvas__wrapper';
     const canvas = document.createElement('canvas');
     div.appendChild(canvas);
-    wrapper.appendChild(div);
     return {ctx: canvas.getContext("2d"), wrapper: div};
 };
 
@@ -113,22 +113,70 @@ function table(sizes) {
     return tableWrapper;
 }
 
-async function boot(file) {
-    const {ctx, wrapper} = addCanvas(file);
+function buildBoxPlotChart(data, wrapper) {
+    const { ctx, wrapper: div } = addCanvas();
+    div.className += ' chart--box-plot';
+    wrapper.appendChild(div);
+    const bags = {};
+    // group data by major.minor
+    data.forEach(d => {
+        const v = semver.parse(d.version);
+        const majorMinor = `${v.major}.${v.minor}`;
+        bags[majorMinor] = bags[majorMinor] || [];
+        bags[majorMinor].push(d.size.gzip);
+    });
 
+    const labels = Object.keys(bags);
+    const gzip = Object.values(bags);
+
+    new Chart(ctx, {
+        plugins: [ChartBoxPlot],
+        responsiveAnimationDuration: 0,
+        type: 'boxplot',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'gzipped',
+                    data: gzip,
+                    backgroundColor: 'rgba(0,0,255,0.5)',
+                    borderColor: 'blue',
+                    borderWidth: 1,
+                    padding: 10,
+                    itemRadius: 0,
+                    outlierColor: '#999999',
+                }]
+        },
+        options: {
+            legend: {
+                display: false,
+            },
+            title: {
+                display: true,
+                text: 'all major.minor releases size (gzip)'
+            },
+            plugins: {
+                crosshair: false,
+            },
+            animation: {
+                duration: 0
+            },
+            scales: {
+                yAxes: [{
+                    ticks: {
+                        callback: value => formatBytes(value)
+                    }
+                }],
+            },
+        }
+    });
+}
+
+function buildLineChart(data, wrapper) {
+    const { ctx, wrapper: div } = addCanvas();
+    div.className += ' chart--line';
+    wrapper.appendChild(div);
     let maxSize = 0;
-    const data = sizes
-        .map(size => ({
-            time: size.time,
-            date: new Date(size.time),
-            version: size.version,
-            ...size.files.find(f => f.name === file)
-        }))
-        .sort((a, b) => semver.compare(a.version, b.version));
-
-    wrapper.appendChild(table(sliceEnd(data, 20)));
-
-    // return;
     const annotations = [];
     const labels = data.map(d => d.version);
     data.forEach((d, idx) => {
@@ -180,6 +228,10 @@ async function boot(file) {
             }]
         },
         options: {
+            title: {
+                display: true,
+                text: 'File size each release'
+            },
             animation: {
                 duration: 0
             },
@@ -201,7 +253,7 @@ async function boot(file) {
                 intersect: false,
                 callbacks: {
                     title: function ([{index}]) {
-                        return data[Math.max(0, index - 1)].version;
+                        return data[index].version;
                     },
                     label: function (tooltipItem, data) {
                         const dataset = data.datasets[tooltipItem.datasetIndex];
@@ -246,6 +298,26 @@ async function boot(file) {
             }
         }
     });
+}
+
+async function boot(file) {
+    const fileWrapper = document.createElement('div');
+    fileWrapper.className = 'col-xl-6 col-sm-12 col-xs-12';
+    wrapper.appendChild(fileWrapper);
+
+    const data = sizes
+        .map(size => ({
+            time: size.time,
+            date: new Date(size.time),
+            version: size.version,
+            ...size.files.find(f => f.name === file)
+        }))
+        .sort((a, b) => semver.compare(a.version, b.version));
+
+    buildLineChart(data, fileWrapper);
+    buildBoxPlotChart(data, fileWrapper);
+
+    fileWrapper.appendChild(table(sliceEnd(data, 20)));
 }
 
 files.forEach(boot);
