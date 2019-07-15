@@ -305,6 +305,10 @@ async function boot(file) {
     fileWrapper.className = 'col-xl-6 col-sm-12 col-xs-12';
     wrapper.appendChild(fileWrapper);
 
+    const title = document.createElement('h2');
+    title.innerText = file;
+    fileWrapper.appendChild(title);
+
     const data = sizes
         .map(size => ({
             time: size.time,
