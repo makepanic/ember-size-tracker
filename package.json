@@ -10,7 +10,7 @@
   "author": "Christian",
   "license": "MIT",
   "dependencies": {
-    "chart.js": "^2.8.0",
+    "chart.js": "^2.9.4",
     "chartjs-chart-box-and-violin-plot": "^2.1.0",
     "chartjs-plugin-annotation": "^0.5.7",
     "chartjs-plugin-crosshair": "^1.1.3",
